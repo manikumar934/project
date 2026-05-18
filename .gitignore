@@ -1,0 +1,19 @@
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfvars
+terraform/.terraform.lock.hcl
+terraform/tfplan
+
+# Node
+node_modules/
+frontend/build/
+backend/.env
+
+# Docker
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db

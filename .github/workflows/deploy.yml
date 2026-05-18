@@ -1,0 +1,81 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "backend/**"
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: bakery-cluster
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/bakery-github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Frontend ──────────────────────────────────────────────
+      - name: Build & push frontend image
+        working-directory: frontend
+        env:
+          IMAGE: ${{ env.ECR_REGISTRY }}/bakery-frontend:${{ github.sha }}
+        run: |
+          docker build \
+            --build-arg REACT_APP_API_URL=https://sonali24.online \
+            -t $IMAGE -t ${{ env.ECR_REGISTRY }}/bakery-frontend:latest .
+          docker push $IMAGE
+          docker push ${{ env.ECR_REGISTRY }}/bakery-frontend:latest
+
+      - name: Deploy frontend to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service bakery-frontend \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      # ── Backend ───────────────────────────────────────────────
+      - name: Build & push backend image
+        working-directory: backend
+        env:
+          IMAGE: ${{ env.ECR_REGISTRY }}/bakery-backend:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE -t ${{ env.ECR_REGISTRY }}/bakery-backend:latest .
+          docker push $IMAGE
+          docker push ${{ env.ECR_REGISTRY }}/bakery-backend:latest
+
+      - name: Deploy backend to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service bakery-backend \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for services to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services bakery-frontend bakery-backend \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ Deployment complete!"
