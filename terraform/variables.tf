@@ -21,6 +21,7 @@ variable "db_username" {
 
 variable "db_password" {
   description = "RDS master password"
+  default     = "YourStrongPassword123!"
   sensitive   = true
 }
 
@@ -31,8 +32,10 @@ variable "db_name" {
 
 variable "frontend_image" {
   description = "Frontend ECR image URI"
+  default     = "265766932843.dkr.ecr.us-east-1.amazonaws.com/bakery-frontend:latest"
 }
 
 variable "backend_image" {
   description = "Backend ECR image URI"
+  default     = "265766932843.dkr.ecr.us-east-1.amazonaws.com/bakery-backend:latest"
 }
