@@ -34,41 +34,19 @@ resource "aws_iam_role_policy" "ecs_secrets" {
   })
 }
 
-# GitHub Actions OIDC Provider
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+# OIDC Provider already exists - read it as data source
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
 }
 
-# IAM Role for GitHub Actions (OIDC)
-# Replace YOUR_GITHUB_ORG/YOUR_REPO with your actual GitHub org/repo
-resource "aws_iam_role" "github_actions" {
-  name = "${var.project}-github-actions-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Federated = aws_iam_openid_connect_provider.github.arn
-      }
-      Action = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:YOUR_GITHUB_ORG/YOUR_REPO:*"
-        }
-        StringEquals = {
-          "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-        }
-      }
-    }]
-  })
+# GitHub Actions IAM Role already exists - read it as data source
+data "aws_iam_role" "github_actions" {
+  name = "bakery-github-actions-role"
 }
 
 resource "aws_iam_role_policy" "github_actions" {
   name = "${var.project}-github-actions-policy"
-  role = aws_iam_role.github_actions.id
+  role = data.aws_iam_role.github_actions.name
 
   policy = jsonencode({
     Version = "2012-10-17"
